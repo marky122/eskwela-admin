@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EskwelaPH Licensing Admin</title>
+<style>
+:root{--navy:#0b3a6e;--navy2:#0e4b8a;--gold:#f9a825;--ink:#1d2733;--line:#d8dee7;--bg:#f4f6f9;--ok:#0a7a3d;--bad:#b3261e;}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;background:var(--navy);color:#fff}
+.brand{font-size:18px;font-weight:700;letter-spacing:.3px}
+.brand span{font-weight:400;opacity:.85;font-size:14px;margin-left:8px}
+.head-right{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.counts{font-size:13px;opacity:.95}
+.counts b{color:var(--gold)}
+nav{display:flex;gap:6px;padding:10px 20px 0;background:var(--navy);border-bottom:3px solid var(--gold)}
+nav button{border:0;background:transparent;color:#dbe6f3;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0}
+nav button.active{background:var(--bg);color:var(--navy)}
+main{padding:20px;max-width:1100px;margin:0 auto}
+#error{color:var(--bad);font-weight:600;min-height:20px;margin-bottom:8px}
+h2{margin:.2em 0 .6em}
+.panel{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:12px}
+input,select,button{font:inherit}
+input,select{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:#fff}
+button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:600}
+button.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+button.primary:hover{background:var(--navy2)}
+button.danger{color:var(--bad);border-color:#e6b8b5}
+button:hover{filter:brightness(.97)}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef2f7;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#44515f}
+tr:hover td{background:#f8fafc}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:700}
+.tag.ACTIVE{background:#e2f4e9;color:var(--ok)}
+.tag.UNUSED{background:#e8eefb;color:var(--navy2)}
+.tag.EXPIRED{background:#fdeeda;color:#9a5b00}
+.tag.DISABLED{background:#fbe6e5;color:var(--bad)}
+.muted{color:#6b7684;font-size:12px}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.actions button{padding:4px 9px;font-size:12px}
+#generated{background:#fff8e6;border:1px solid var(--gold);border-radius:8px;padding:12px 16px;margin-bottom:16px}
+#generated code{font-size:16px;font-weight:700;letter-spacing:1px;color:var(--navy)}
+.split{display:grid;grid-template-columns:300px 1fr;gap:14px;min-height:420px}
+@media(max-width:800px){.split{grid-template-columns:1fr}}
+#chat-list{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:60vh;display:flex;flex-direction:column}
+.chat-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 12px;text-align:left;background:#fff;position:relative}
+.chat-item.active{background:#e8eefb}
+.chat-item .badge{position:absolute;top:8px;right:10px;background:var(--bad);color:#fff;border-radius:10px;padding:0 7px;font-size:12px;font-weight:700}
+.chat-item .tag{font-size:11px}
+#thread{background:#fff;border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;min-height:420px}
+.thread-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:700}
+.messages{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;max-height:52vh}
+.messages p{margin:0;background:#f2f5f9;border-radius:10px;padding:8px 12px;max-width:85%}
+.messages p.admin{background:#e8eefb;align-self:flex-end}
+.messages small{color:#6b7684}
+.messages img.shot{max-width:260px;max-height:220px;border-radius:6px;border:1px solid var(--line);display:block;margin-top:6px}
+#reply{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
+#reply input{flex:1}
+.empty{padding:18px;color:#6b7684}
+.modal{position:fixed;inset:0;background:rgba(11,58,110,.45);display:flex;align-items:center;justify-content:center;z-index:9}
+.modal[hidden]{display:none}
+.modal-card{background:#fff;border-radius:10px;padding:18px;width:min(440px,92vw);box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.modal-card p{margin-top:0}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+#keygate input{width:100%}
+#keygate-msg{color:var(--bad);font-weight:600;min-height:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">EskwelaPH <span>Licensing Admin</span></div>
+  <div class="head-right">
+    <div class="counts" id="counts"></div>
+    <button type="button" id="change-key" style="background:transparent;color:#dbe6f3;border-color:#3f6391">Change key</button>
+  </div>
+</header>
+<nav id="nav">
+  <button type="button" data-page="Licenses" class="active">Licenses</button>
+  <button type="button" data-page="Support Chat">Support Chat</button>
+  <button type="button" data-page="Audit">Audit</button>
+</nav>
+<main>
+  <div id="error" role="alert"></div>
+  <div id="generated" hidden></div>
+  <div id="content"></div>
+</main>
+<div id="modal" class="modal" hidden>
+  <div class="modal-card">
+    <p id="modal-text"></p>
+    <input id="modal-input" autocomplete="off"/>
+    <div class="modal-actions">
+      <button type="button" id="modal-cancel">Cancel</button>
+      <button type="button" class="primary" id="modal-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+<div id="keygate" class="modal" hidden>
+  <div class="modal-card">
+    <p><strong>Enter your admin key</strong></p>
+    <p class="muted">Stored only in this browser on this device. It is never part of this page.</p>
+    <input id="keygate-input" type="password" autocomplete="off" placeholder="ESKWELA_LICENSE_ADMIN_KEY"/>
+    <div id="keygate-msg"></div>
+    <div class="modal-actions">
+      <button type="button" class="primary" id="keygate-save">Unlock</button>
+    </div>
+  </div>
+</div>
+<script type="module">
+const BASE='https://juyqxvnrgzzkvjucpzwy.supabase.co/functions/v1/eskwela-license';
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=t=>t?new Date(t).toLocaleString():'—';
+const shortId=id=>String(id).slice(0,12)+'…';
+let adminKey='';
+try{adminKey=localStorage.getItem('eskwelaAdminKey')||'';}catch{}
+function openKeyGate(message){
+  const gate=$('#keygate');
+  $('#keygate-msg').textContent=message||'';
+  gate.hidden=false;
+  $('#keygate-input').focus();
+}
+function closeKeyGate(){$('#keygate').hidden=true;$('#keygate-input').value='';}
+const api=async(path,options={})=>{
+  if(!adminKey){openKeyGate('');throw new Error('Enter the admin key to continue.');}
+  const headers={...(options.body?{'Content-Type':'application/json'}:{}),Authorization:'Bearer '+adminKey};
+  const response=await fetch(BASE+path,{method:options.method||'GET',headers,body:options.body?JSON.stringify(options.body):undefined});
+  let data={};try{data=await response.json();}catch{}
+  if(response.status===401){openKeyGate('That admin key was rejected.');throw new Error('Unauthorized — check the admin key.');}
+  if(!response.ok)throw new Error(data.error||`Request failed (${response.status})`);
+  return data;
+};
+async function fetchImage(path){
+  if(!adminKey)return null;
+  const response=await fetch(BASE+path,{headers:{Authorization:'Bearer '+adminKey}});
+  if(!response.ok)return null;
+  return await response.blob();
+}
+let errorTimer;
+function showError(message){
+  const el=$('#error');el.textContent=message||'';
+  clearTimeout(errorTimer);
+  if(message)errorTimer=setTimeout(()=>{el.textContent='';},8000);
+}
+const state={page:'Licenses',counts:{},unread:0,licenses:[],chats:[],messages:[],activeChat:null,q:'',status:''};
+function renderCounts(){
+  const c=state.counts||{};
+  $('#counts').innerHTML=`UNUSED <b>${c.UNUSED??0}</b> · ACTIVE <b>${c.ACTIVE??0}</b> · EXPIRED <b>${c.EXPIRED??0}</b> · DISABLED <b>${c.DISABLED??0}</b>${state.unread?` · <b>${state.unread} unread chat message${state.unread===1?'':'s'}</b>`:''}`;
+}
+function updateNav(){
+  const button=document.querySelector('[data-page="Support Chat"]');
+  if(button)button.textContent=state.unread?`Support Chat (${state.unread})`:'Support Chat';
+}
+let confirmResolver=null;
+function askConfirm(text){
+  $('#modal-text').textContent=text;$('#modal-input').value='';$('#modal').hidden=false;$('#modal-input').focus();
+  return new Promise(resolve=>{confirmResolver=resolve;});
+}
+function closeConfirm(value){$('#modal').hidden=true;const r=confirmResolver;confirmResolver=null;r?.(value);}
+$('#modal-cancel').addEventListener('click',()=>closeConfirm(null));
+$('#modal-ok').addEventListener('click',()=>closeConfirm($('#modal-input').value));
+$('#modal-input').addEventListener('keydown',e=>{if(e.key==='Enter')closeConfirm($('#modal-input').value);if(e.key==='Escape')closeConfirm(null);});
+$('#keygate-save').addEventListener('click',()=>{
+  const value=$('#keygate-input').value.trim();
+  if(value.length<8){$('#keygate-msg').textContent='Paste the full admin key.';return;}
+  adminKey=value;
+  try{localStorage.setItem('eskwelaAdminKey',value);}catch{}
+  closeKeyGate();
+  showError('');
+  loadDashboard();
+  renderPage();
+});
+$('#keygate-input').addEventListener('keydown',e=>{if(e.key==='Enter')$('#keygate-save').click();});
+$('#change-key').addEventListener('click',()=>{
+  try{localStorage.removeItem('eskwelaAdminKey');}catch{}
+  adminKey='';
+  openKeyGate('');
+});
+
+async function loadDashboard(){
+  if(!adminKey)return;
+  try{
+    const dash=await api('/admin/dashboard');
+    state.counts=dash.counts||{};state.unread=dash.unread||0;
+    renderCounts();updateNav();
+  }catch(error){showError(error.message);}
+}
+
+function renderLicenses(){
+  $('#content').innerHTML=`
+  <div class="panel">
+    <h2>Issue a license</h2>
+    <form id="issue" class="row">
+      <label>Subscriber Full Name<input name="subscriberName" maxlength="200" required/></label>
+      <label>Type<select name="licenseType"><option value="ANNUAL">Annual</option><option value="TRIAL">Trial</option></select></label>
+      <label id="days" hidden>Trial days<input name="trialDays" type="number" min="1" max="30" value="7"/></label>
+      <button class="primary" type="submit">Issue license</button>
+    </form>
+  </div>
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <label>Search<input id="q" placeholder="Subscriber name" value="${esc(state.q)}"/></label>
+        <label>Status<select id="status">
+          <option value="">All</option>
+          <option value="UNUSED">UNUSED</option>
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="EXPIRED">EXPIRED</option>
+          <option value="DISABLED">DISABLED</option>
+        </select></label>
+      </div>
+      <button type="button" id="refresh">Refresh</button>
+    </div>
+    <div id="licenses"><p class="empty">Loading…</p></div>
+  </div>`;
+  const form=$('#issue');
+  form.elements.licenseType.addEventListener('change',()=>{$('#days').hidden=form.elements.licenseType.value!=='TRIAL';});
+  $('#status').value=state.status;
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const licenseType=form.elements.licenseType.value;
+    const body={subscriberName:form.elements.subscriberName.value,licenseType,trialDays:licenseType==='TRIAL'?Number(form.elements.trialDays.value):null};
+    try{
+      const result=await api('/admin/licenses',{method:'POST',body});
+      form.reset();$('#days').hidden=true;
+      $('#generated').hidden=false;
+      $('#generated').innerHTML=`<strong>License issued</strong> for ${esc(body.subscriberName)} — <code>${esc(result.code)}</code>
+        <button type="button" id="copy" style="margin-left:10px">Copy</button>
+        <div class="muted"><strong>Copy it now — this code is shown only once.</strong></div>`;
+      $('#copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(result.code);showError('');}catch{showError('Copy failed — select the code manually.');}});
+      await loadLicenses();
+    }catch(error){showError(error.message);}
+  });
+  $('#q').addEventListener('input',()=>{state.q=$('#q').value;loadLicenses();});
+  $('#status').addEventListener('change',()=>{state.status=$('#status').value;loadLicenses();});
+  $('#refresh').addEventListener('click',()=>loadLicenses());
+  $('#licenses').addEventListener('click',async event=>{
+    const button=event.target.closest('button[data-action]');
+    if(!button)return;
+    const {action,id,name}=button.dataset;
+    const confirm=await askConfirm(`Type the subscriber name to confirm — ${action.replace(/-/g,' ')}:\n\n${name}`);
+    if(confirm===null)return;
+    try{
+      await api(`/admin/licenses/${encodeURIComponent(id)}/${action}`,{method:'POST',body:{confirm}});
+      await Promise.all([loadLicenses(),loadDashboard()]);
+    }catch(error){showError(error.message);}
+  });
+  loadLicenses();
+}
+async function loadLicenses(){
+  if(!adminKey)return;
+  try{
+    state.licenses=await api(`/admin/licenses?q=${encodeURIComponent(state.q)}&status=${encodeURIComponent(state.status)}`);
+    renderLicenseTable();
+  }catch(error){showError(error.message);}
+}
+function actionButtons(license){
+  const buttons=[];
+  if(license.status==='ACTIVE')buttons.push(['disable','Disable','danger']);
+  if(license.status==='DISABLED')buttons.push(['reactivate','Reactivate','']);
+  if(license.status==='ACTIVE'||license.status==='EXPIRED')buttons.push(['reset-device','Reset device','']);
+  buttons.push(['reset-teacher','Reset teacher registration','']);
+  return buttons.map(([action,label,cls])=>`<button type="button" class="${cls}" data-action="${action}" data-id="${esc(license.id)}" data-name="${esc(license.subscriberName)}">${label}</button>`).join('');
+}
+function renderLicenseTable(){
+  const rows=state.licenses||[];
+  $('#licenses').innerHTML=rows.length?`<table>
+    <thead><tr><th>Subscriber</th><th>Type</th><th>Status</th><th>Expires</th><th>Days</th><th>Device</th><th>Last verified</th><th>Actions</th></tr></thead>
+    <tbody>${rows.map(l=>`<tr>
+      <td><strong>${esc(l.subscriberName)}</strong></td>
+      <td>${esc(l.licenseType)}${l.licenseType==='TRIAL'&&l.trialDays?`<div class="muted">${l.trialDays}-day trial</div>`:''}</td>
+      <td><span class="tag ${esc(l.status)}">${esc(l.status)}</span></td>
+      <td>${fmt(l.expiresAt)}</td>
+      <td>${l.daysRemaining??'—'}</td>
+      <td>${esc(l.deviceStatus)}<div class="muted">${esc(l.registrationStatus)}</div></td>
+      <td>${fmt(l.lastVerifiedAt)}</td>
+      <td><div class="actions">${actionButtons(l)}</div></td>
+    </tr>`).join('')}</tbody></table>`:'<p class="empty">No licenses match.</p>';
+}
+
+function renderChat(){
+  $('#content').innerHTML=`
+  <div class="split">
+    <aside id="chat-list"><p class="empty">Loading…</p></aside>
+    <section id="thread"><p class="empty">Select a conversation.</p></section>
+  </div>`;
+  $('#chat-list').addEventListener('click',event=>{
+    const item=event.target.closest('[data-chat]');
+    if(item)openChat(item.dataset.chat);
+  });
+  loadChats().then(()=>{
+    if(state.activeChat)renderThread();
+  });
+}
+async function loadChats(){
+  if(!adminKey)return;
+  try{
+    state.chats=await api('/admin/chats');
+    renderChatList();
+  }catch(error){showError(error.message);}
+}
+function renderChatList(){
+  const list=$('#chat-list');
+  if(!list)return;
+  list.innerHTML=state.chats.length?state.chats.map(chat=>`
+    <button type="button" class="chat-item${state.activeChat===chat.id?' active':''}" data-chat="${esc(chat.id)}">
+      <strong>${esc(shortId(chat.id))}</strong>
+      <span class="muted">${fmt(chat.updated_at)}</span>
+      ${chat.resolved?'<span class="tag">Resolved</span>':''}
+      ${chat.unread?`<span class="badge">${chat.unread}</span>`:''}
+    </button>`).join(''):'<p class="empty">No conversations yet.</p>';
+}
+async function openChat(id){
+  state.activeChat=id;
+  renderChatList();
+  try{
+    state.messages=await api('/admin/chats/'+id);
+    renderThread();
+  }catch(error){showError(error.message);}
+}
+function renderThread(){
+  const thread=$('#thread');
+  if(!thread)return;
+  if(!state.activeChat){thread.innerHTML='<p class="empty">Select a conversation.</p>';return;}
+  const chat=state.chats.find(c=>c.id===state.activeChat);
+  thread.innerHTML=`
+    <div class="thread-head">
+      <span>${esc(shortId(state.activeChat))}</span>
+      ${chat&&!chat.resolved?'<button type="button" id="resolve">Mark resolved</button>':'<span class="muted">Resolved</span>'}
+    </div>
+    <div class="messages" id="messages"></div>
+    <form id="reply"><input name="body" maxlength="2000" placeholder="Reply to customer"/><button class="primary" type="submit">Send</button></form>`;
+  renderMessages();
+  $('#resolve')?.addEventListener('click',async()=>{
+    try{await api(`/admin/chats/${state.activeChat}/resolve`,{method:'POST',body:{}});await loadChats();renderThread();}catch(error){showError(error.message);}
+  });
+  $('#reply').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const input=event.target.elements.body;
+    const body=input.value.trim();
+    if(!body)return;
+    try{
+      await api(`/admin/chats/${state.activeChat}`,{method:'POST',body:{body}});
+      input.value='';
+      await Promise.all([openChat(state.activeChat),loadChats(),loadDashboard()]);
+    }catch(error){showError(error.message);}
+  });
+}
+function renderMessages(){
+  const box=$('#messages');
+  if(!box)return;
+  box.innerHTML=state.messages.length?state.messages.map(m=>`
+    <p class="${m.sender==='admin'?'admin':''}">
+      <small>${m.sender==='admin'?'Admin':'Customer'} · ${fmt(m.at)}</small><br/>${esc(m.body||'')}
+      ${m.imageUrl?`<img class="shot" data-image="${esc(m.imageUrl)}" alt="Payment screenshot"/>`:''}
+    </p>`).join(''):'<p class="empty">No messages yet.</p>';
+  box.querySelectorAll('img[data-image]').forEach(img=>{
+    fetchImage(img.dataset.image).then(blob=>{
+      if(blob&&typeof URL.createObjectURL==='function')img.src=URL.createObjectURL(blob);
+    }).catch(()=>{img.alt='Image unavailable.';});
+  });
+}
+
+async function renderAudit(){
+  $('#content').innerHTML='<div class="panel"><h2>Audit log</h2><div id="audit"><p class="empty">Loading…</p></div></div>';
+  if(!adminKey)return;
+  try{
+    const rows=await api('/admin/audit');
+    $('#audit').innerHTML=rows.length?`<table>
+      <thead><tr><th>When</th><th>Actor</th><th>Event</th><th>Subscriber</th></tr></thead>
+      <tbody>${rows.map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.actor||'system')}</td><td>${esc(a.event)}</td><td>${esc(a.subscriberName||'')}</td></tr>`).join('')}</tbody>
+      </table>`:'<p class="empty">No audit entries yet.</p>';
+  }catch(error){showError(error.message);}
+}
+
+function renderPage(){
+  document.querySelectorAll('#nav button').forEach(button=>button.classList.toggle('active',button.dataset.page===state.page));
+  if(state.page==='Licenses')renderLicenses();
+  else if(state.page==='Support Chat')renderChat();
+  else renderAudit();
+}
+$('#nav').addEventListener('click',event=>{
+  const button=event.target.closest('[data-page]');
+  if(!button)return;
+  state.page=button.dataset.page;
+  renderPage();
+});
+async function tick(){
+  if(!adminKey)return;
+  try{
+    const dash=await api('/admin/dashboard');
+    state.counts=dash.counts||{};state.unread=dash.unread||0;
+    renderCounts();updateNav();
+    if(state.page==='Support Chat'){
+      const chats=await api('/admin/chats');
+      state.chats=chats;renderChatList();
+      if(state.activeChat&&$('#messages')){
+        state.messages=await api('/admin/chats/'+state.activeChat);
+        renderMessages();
+      }
+    }
+  }catch{/* keep polling through transient failures */}
+}
+renderPage();
+if(!adminKey)openKeyGate('');
+loadDashboard();
+setInterval(tick,15000);
+</script>
+</body>
+</html>
