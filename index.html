@@ -131,7 +131,7 @@ const api=async(path,options={})=>{
   const response=await fetch(BASE+'/api'+path,{method:options.method||'GET',headers,body:options.body?JSON.stringify(options.body):undefined});
   let data={};try{data=await response.json();}catch{}
   if(response.status===401){openKeyGate('That admin key was rejected.');throw new Error('Unauthorized — check the admin key.');}
-  if(!response.ok)throw new Error(data.error||`Request failed (${response.status})`);
+  if(!response.ok)throw Object.assign(new Error(data.error||`Request failed (${response.status})`),{status:response.status});
   return data;
 };
 async function fetchImage(path){
@@ -395,11 +395,16 @@ async function renderAISettings(){
     form.hidden=!!value.configured;$('#ai-change').hidden=!value.configured;$('#ai-test').disabled=!value.configured;
   };
   form.addEventListener('submit',async event=>{
-    event.preventDefault();const key=input.value.trim();input.value='';
-    const button=form.querySelector('button');button.disabled=true;
-    try{update(await api('/admin/ai-settings',{method:'POST',body:{apiKey:key}}));message.textContent='API key saved securely. Test the connection.';}
-    catch{message.textContent='API key could not be saved. Please try again.';}
-    finally{button.disabled=false;}
+    event.preventDefault();const key=input.value.trim();
+    if(!/^[A-Za-z0-9_-]{20,256}$/.test(key)){message.textContent='Paste only the Gemini API key, without quotes, spaces, or other text.';return;}
+    const button=form.querySelector('button');button.disabled=true;input.disabled=true;
+    try{
+      const saved=await api('/admin/ai-settings',{method:'POST',body:{apiKey:key}});
+      input.value='';update(saved);message.textContent='API key saved securely. Test the connection.';
+    }catch(error){
+      const messages={400:'Paste only the Gemini API key, without quotes, spaces, or other text.',401:'Your admin session was rejected. Unlock Licensing Admin and try again.',429:'Too many requests. Wait one minute, then save again.',503:'Secure key storage is temporarily unavailable. Please try again shortly.'};
+      message.textContent=messages[error.status]||'Unable to reach the licensing server. Check your connection and try again.';
+    }finally{button.disabled=false;input.disabled=false;}
   });
   $('#ai-change').addEventListener('click',()=>{form.hidden=false;input.value='';input.focus();});
   $('#ai-test').addEventListener('click',async event=>{
