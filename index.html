@@ -382,31 +382,84 @@ async function renderAISettings(){
     <p><strong>Gemini API</strong> <span id="ai-state">Checking…</span></p>
     <p id="ai-mask" class="muted"></p>
     <form id="ai-key-form" autocomplete="off"><label>Gemini API Key
-      <input id="ai-api-key" type="password" autocomplete="new-password" spellcheck="false" maxlength="256" required/>
-    </label><p><button class="primary" type="submit">Save API Key</button></p></form>
+      <input id="ai-api-key" type="password" autocomplete="new-password" spellcheck="false" maxlength="256" placeholder="AIza…" required/>
+    </label>
+    <p id="ai-hint" class="muted">Paste the key from Google AI Studio — it starts with AIza.</p>
+    <p><button class="primary" type="submit">Save API Key</button>
+      <button type="button" id="ai-paste">Paste key</button></p></form>
     <div class="actions"><button id="ai-change" type="button" hidden>Change API Key</button>
       <button id="ai-test" type="button" disabled>Test Connection</button></div>
     <p id="ai-message" role="status"></p></section>`;
-  const form=$('#ai-key-form'),input=$('#ai-api-key'),message=$('#ai-message');
+  const form=$('#ai-key-form'),input=$('#ai-api-key'),message=$('#ai-message'),hint=$('#ai-hint');
+  const looksLikeKey=value=>/^[A-Za-z0-9_-]{20,256}$/.test(value);
+  const GEMINI_KEY_LENGTH=39;
+  const normalize=raw=>{
+    const trimmed=String(raw??'').trim().replace(/^["'`]+|["'`]+$/g,'')
+      .replace(/^(?:gemini_?)?api_?key\s*[:=]\s*/i,'');
+    const tokens=trimmed.split(/\s+/).filter(Boolean);
+    if(!tokens.length)return '';
+    if(tokens.length===1)return looksLikeKey(tokens[0])?tokens[0]:(tokens[0].match(/AIza[A-Za-z0-9_-]{10,}/)||[tokens[0]])[0];
+    const exact=tokens.filter(token=>looksLikeKey(token));
+    const joined=tokens.join('');
+    const embedded=joined.match(/AIza[A-Za-z0-9_-]{10,}/);
+    const candidates=[...new Set([...exact,joined,...(embedded?[embedded[0]]:[])])];
+    const canonical=candidates.filter(candidate=>candidate.length===GEMINI_KEY_LENGTH);
+    if(canonical.length===1)return canonical[0];
+    if(exact.length)return exact[0];
+    if(looksLikeKey(joined))return joined;
+    return embedded?embedded[0]:joined;
+  };
+  const describe=key=>{
+    if(key.length>256)return 'That value is too long to be a Gemini API key.';
+    if(key.length<20)return `That value is only ${key.length} characters. Copy the full key from Google AI Studio.`;
+    const bad=[...new Set([...key].filter(character=>!/^[A-Za-z0-9_-]$/.test(character)))];
+    if(bad.length)return `The key contains ${bad.map(character=>/\s/.test(character)?'a space or line break':`“${character}”`).join(', ')}. Only letters, numbers, - and _ are allowed.`;
+    if(!/^AIza/.test(key))return 'A Gemini key starts with AIza — copy the key value itself, not a label or the text around it.';
+    return 'That value does not look like a Gemini API key.';
+  };
+  const updateHint=()=>{
+    const value=input.value;
+    if(!value){hint.textContent='Paste the key from Google AI Studio — it starts with AIza.';return;}
+    const shape=/^AIza/.test(value)?'starts with AIza':'a Gemini key starts with AIza';
+    hint.textContent=`${value.length} characters · ${shape}${/^AIza/.test(value)&&value.length!==GEMINI_KEY_LENGTH?` · a Gemini key is ${GEMINI_KEY_LENGTH} characters`:''}`;
+  };
   const update=value=>{
     if(!form.isConnected)return;
     $('#ai-state').textContent=value.connected?'Connected':value.configured?'Saved — test connection':'Not configured';
     $('#ai-mask').textContent=value.lastFour?'••••••••••••'+value.lastFour:'';
     form.hidden=!!value.configured;$('#ai-change').hidden=!value.configured;$('#ai-test').disabled=!value.configured;
   };
+  input.addEventListener('input',()=>{message.textContent='';updateHint();});
+  input.addEventListener('paste',event=>{
+    const text=(event.clipboardData||window.clipboardData)?.getData('text');
+    if(!text)return;
+    event.preventDefault();
+    input.value=normalize(text);
+    message.textContent='';updateHint();
+    if(!looksLikeKey(input.value))message.textContent=describe(input.value);
+  });
+  $('#ai-paste').addEventListener('click',async()=>{
+    try{
+      const text=await navigator.clipboard.readText();
+      input.value=normalize(text);
+      message.textContent='';updateHint();input.focus();
+      if(!looksLikeKey(input.value))message.textContent=describe(input.value);
+    }catch{message.textContent='Allow clipboard access, or click the field and press Ctrl/Cmd + V.';}
+  });
   form.addEventListener('submit',async event=>{
-    event.preventDefault();const key=input.value.trim();
-    if(!/^[A-Za-z0-9_-]{20,256}$/.test(key)){message.textContent='Paste only the Gemini API key, without quotes, spaces, or other text.';return;}
+    event.preventDefault();const key=normalize(input.value);
+    if(!looksLikeKey(key)){message.textContent=`Paste only the Gemini API key, without quotes, spaces, or other text. ${describe(key)}`;return;}
+    input.value=key;
     const button=form.querySelector('button');button.disabled=true;input.disabled=true;
     try{
       const saved=await api('/admin/ai-settings',{method:'POST',body:{apiKey:key}});
-      input.value='';update(saved);message.textContent='API key saved securely. Test the connection.';
+      input.value='';updateHint();update(saved);message.textContent='API key saved securely. Test the connection.';
     }catch(error){
       const messages={400:'Paste only the Gemini API key, without quotes, spaces, or other text.',401:'Your admin session was rejected. Unlock Licensing Admin and try again.',429:'Too many requests. Wait one minute, then save again.',503:'Secure key storage is temporarily unavailable. Please try again shortly.'};
       message.textContent=messages[error.status]||'Unable to reach the licensing server. Check your connection and try again.';
     }finally{button.disabled=false;input.disabled=false;}
   });
-  $('#ai-change').addEventListener('click',()=>{form.hidden=false;input.value='';input.focus();});
+  $('#ai-change').addEventListener('click',()=>{form.hidden=false;input.value='';updateHint();input.focus();});
   $('#ai-test').addEventListener('click',async event=>{
     const button=event.currentTarget;button.disabled=true;
     try{const result=await api('/admin/ai-settings/test',{method:'POST',body:{}});message.textContent=result.message;update(await api('/admin/ai-settings'));}
