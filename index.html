@@ -82,6 +82,7 @@ tr:hover td{background:#f8fafc}
   <button type="button" data-page="Licenses" class="active">Licenses</button>
   <button type="button" data-page="Support Chat">Support Chat</button>
   <button type="button" data-page="Audit">Audit</button>
+  <button type="button" data-page="AI Settings">AI Settings</button>
 </nav>
 <main>
   <div id="error" role="alert"></div>
@@ -376,10 +377,45 @@ async function renderAudit(){
   }catch(error){showError(error.message);}
 }
 
+async function renderAISettings(){
+  $('#content').innerHTML=`<section class="panel"><h2>AI Settings</h2>
+    <p><strong>Gemini API</strong> <span id="ai-state">Checking…</span></p>
+    <p id="ai-mask" class="muted"></p>
+    <form id="ai-key-form" autocomplete="off"><label>Gemini API Key
+      <input id="ai-api-key" type="password" autocomplete="new-password" spellcheck="false" maxlength="256" required/>
+    </label><p><button class="primary" type="submit">Save API Key</button></p></form>
+    <div class="actions"><button id="ai-change" type="button" hidden>Change API Key</button>
+      <button id="ai-test" type="button" disabled>Test Connection</button></div>
+    <p id="ai-message" role="status"></p></section>`;
+  const form=$('#ai-key-form'),input=$('#ai-api-key'),message=$('#ai-message');
+  const update=value=>{
+    if(!form.isConnected)return;
+    $('#ai-state').textContent=value.connected?'Connected':value.configured?'Saved — test connection':'Not configured';
+    $('#ai-mask').textContent=value.lastFour?'••••••••••••'+value.lastFour:'';
+    form.hidden=!!value.configured;$('#ai-change').hidden=!value.configured;$('#ai-test').disabled=!value.configured;
+  };
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();const key=input.value.trim();input.value='';
+    const button=form.querySelector('button');button.disabled=true;
+    try{update(await api('/admin/ai-settings',{method:'POST',body:{apiKey:key}}));message.textContent='API key saved securely. Test the connection.';}
+    catch{message.textContent='API key could not be saved. Please try again.';}
+    finally{button.disabled=false;}
+  });
+  $('#ai-change').addEventListener('click',()=>{form.hidden=false;input.value='';input.focus();});
+  $('#ai-test').addEventListener('click',async event=>{
+    const button=event.currentTarget;button.disabled=true;
+    try{const result=await api('/admin/ai-settings/test',{method:'POST',body:{}});message.textContent=result.message;update(await api('/admin/ai-settings'));}
+    catch{message.textContent='Gemini API connection failed. Please check the API key.';$('#ai-state').textContent='Not connected';}
+    finally{button.disabled=false;}
+  });
+  try{update(await api('/admin/ai-settings'));}catch{message.textContent='AI settings are currently unavailable.';}
+}
+
 function renderPage(){
   document.querySelectorAll('#nav button').forEach(button=>button.classList.toggle('active',button.dataset.page===state.page));
   if(state.page==='Licenses')renderLicenses();
   else if(state.page==='Support Chat')renderChat();
+  else if(state.page==='AI Settings')renderAISettings();
   else renderAudit();
 }
 $('#nav').addEventListener('click',event=>{
