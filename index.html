@@ -382,46 +382,39 @@ async function renderAISettings(){
     <p><strong>Gemini API</strong> <span id="ai-state">Checking…</span></p>
     <p id="ai-mask" class="muted"></p>
     <form id="ai-key-form" autocomplete="off"><label>Gemini API Key
-      <input id="ai-api-key" type="password" autocomplete="new-password" spellcheck="false" maxlength="256" placeholder="AIza…" required/>
+      <input id="ai-api-key" type="password" autocomplete="new-password" spellcheck="false" maxlength="256" placeholder="Paste your Gemini API key" required/>
     </label>
-    <p id="ai-hint" class="muted">Paste the key from Google AI Studio — it starts with AIza.</p>
+    <p id="ai-hint" class="muted">Paste the complete key from Google AI Studio (AQ. and AIza formats supported).</p>
     <p><button class="primary" type="submit">Save API Key</button>
       <button type="button" id="ai-paste">Paste key</button></p></form>
     <div class="actions"><button id="ai-change" type="button" hidden>Change API Key</button>
       <button id="ai-test" type="button" disabled>Test Connection</button></div>
     <p id="ai-message" role="status"></p></section>`;
   const form=$('#ai-key-form'),input=$('#ai-api-key'),message=$('#ai-message'),hint=$('#ai-hint');
-  const looksLikeKey=value=>/^[A-Za-z0-9_-]{20,256}$/.test(value);
-  const GEMINI_KEY_LENGTH=39;
+  const looksLikeKey=value=>/^[A-Za-z0-9_.-]{20,256}$/.test(value);
   const normalize=raw=>{
-    const trimmed=String(raw??'').trim().replace(/^["'`]+|["'`]+$/g,'')
-      .replace(/^(?:gemini_?)?api_?key\s*[:=]\s*/i,'');
+    const trimmed=String(raw??'').trim()
+      .replace(/^(?:gemini_?)?api_?key\s*[:=]\s*/i,'')
+      .replace(/^["'`]+|["'`]+$/g,'');
     const tokens=trimmed.split(/\s+/).filter(Boolean);
-    if(!tokens.length)return '';
-    if(tokens.length===1)return looksLikeKey(tokens[0])?tokens[0]:(tokens[0].match(/AIza[A-Za-z0-9_-]{10,}/)||[tokens[0]])[0];
-    const exact=tokens.filter(token=>looksLikeKey(token));
+    if(tokens.length<=1)return trimmed;
+    // Keep complete auth keys, including every period. Strip a trailing Copy label.
+    const complete=tokens.filter(token=>/^(?:AQ\.|AIza)/.test(token)&&looksLikeKey(token));
+    if(complete.length===1&&tokens.every(token=>token===complete[0]||/^copy$/i.test(token)))return complete[0];
     const joined=tokens.join('');
-    const embedded=joined.match(/AIza[A-Za-z0-9_-]{10,}/);
-    const candidates=[...new Set([...exact,joined,...(embedded?[embedded[0]]:[])])];
-    const canonical=candidates.filter(candidate=>candidate.length===GEMINI_KEY_LENGTH);
-    if(canonical.length===1)return canonical[0];
-    if(exact.length)return exact[0];
-    if(looksLikeKey(joined))return joined;
-    return embedded?embedded[0]:joined;
+    if(/^(?:AQ\.|AIza)/.test(joined)&&looksLikeKey(joined))return joined;
+    return trimmed;
   };
   const describe=key=>{
-    if(key.length>256)return 'That value is too long to be a Gemini API key.';
+    if(key.length>256)return 'That value is too long. Copy only the key value from Google AI Studio.';
     if(key.length<20)return `That value is only ${key.length} characters. Copy the full key from Google AI Studio.`;
-    const bad=[...new Set([...key].filter(character=>!/^[A-Za-z0-9_-]$/.test(character)))];
-    if(bad.length)return `The key contains ${bad.map(character=>/\s/.test(character)?'a space or line break':`“${character}”`).join(', ')}. Only letters, numbers, - and _ are allowed.`;
-    if(!/^AIza/.test(key))return 'A Gemini key starts with AIza — copy the key value itself, not a label or the text around it.';
-    return 'That value does not look like a Gemini API key.';
+    return 'Copy only the complete key value from Google AI Studio. Periods in AQ. keys are supported; remove surrounding labels or quotes.';
   };
   const updateHint=()=>{
     const value=input.value;
-    if(!value){hint.textContent='Paste the key from Google AI Studio — it starts with AIza.';return;}
-    const shape=/^AIza/.test(value)?'starts with AIza':'a Gemini key starts with AIza';
-    hint.textContent=`${value.length} characters · ${shape}${/^AIza/.test(value)&&value.length!==GEMINI_KEY_LENGTH?` · a Gemini key is ${GEMINI_KEY_LENGTH} characters`:''}`;
+    if(!value){hint.textContent='Paste the complete key from Google AI Studio (AQ. and AIza formats supported).';return;}
+    const shape=/^AQ\./.test(value)?'AQ. auth key format':/^AIza/.test(value)?'starts with AIza':'key format checked by Test Connection';
+    hint.textContent=`${value.length} characters · ${shape}`;
   };
   const update=value=>{
     if(!form.isConnected)return;
