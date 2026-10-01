@@ -130,7 +130,7 @@ const api=async(path,options={})=>{
   const headers={...(options.body?{'Content-Type':'application/json'}:{}),Authorization:'Bearer '+adminKey};
   const response=await fetch(BASE+'/api'+path,{method:options.method||'GET',headers,body:options.body?JSON.stringify(options.body):undefined});
   let data={};try{data=await response.json();}catch{}
-  if(response.status===401){openKeyGate('That admin key was rejected.');throw new Error('Unauthorized — check the admin key.');}
+  if(response.status===401){openKeyGate('That admin key was rejected.');throw Object.assign(new Error('Unauthorized — check the admin key.'),{status:401});}
   if(!response.ok)throw Object.assign(new Error(data.error||`Request failed (${response.status})`),{status:response.status});
   return data;
 };
