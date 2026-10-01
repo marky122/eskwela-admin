@@ -131,7 +131,7 @@ const api=async(path,options={})=>{
   const response=await fetch(BASE+'/api'+path,{method:options.method||'GET',headers,body:options.body?JSON.stringify(options.body):undefined});
   let data={};try{data=await response.json();}catch{}
   if(response.status===401){openKeyGate('That admin key was rejected.');throw Object.assign(new Error('Unauthorized — check the admin key.'),{status:401});}
-  if(!response.ok)throw Object.assign(new Error(data.error||`Request failed (${response.status})`),{status:response.status});
+  if(!response.ok)throw Object.assign(new Error(data.error||data.message||`Request failed (${response.status})`),{status:response.status});
   return data;
 };
 async function fetchImage(path){
@@ -456,7 +456,7 @@ async function renderAISettings(){
   $('#ai-test').addEventListener('click',async event=>{
     const button=event.currentTarget;button.disabled=true;
     try{const result=await api('/admin/ai-settings/test',{method:'POST',body:{}});message.textContent=result.message;update(await api('/admin/ai-settings'));}
-    catch{message.textContent='Gemini API connection failed. Please check the API key.';$('#ai-state').textContent='Not connected';}
+    catch(error){message.textContent=error.message||'Unable to test Gemini right now. Please retry.';$('#ai-state').textContent='Not connected';}
     finally{button.disabled=false;}
   });
   try{update(await api('/admin/ai-settings'));}catch{message.textContent='AI settings are currently unavailable.';}
