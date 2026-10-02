@@ -80,6 +80,9 @@ main.wide{max-width:none;padding:12px 16px}
 .inbox-cover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#fff;text-align:center;padding:24px}
 .inbox-cover[hidden]{display:none}
 .inbox-cover p{margin:0;max-width:460px}
+.inbox-hint{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#fff8e6;border:1px solid var(--gold);border-radius:8px;padding:8px 12px;font-size:13px}
+.inbox-hint[hidden]{display:none}
+.inbox-hint button{padding:6px 12px;font-size:13px}
 .spinner{width:34px;height:34px;border:3px solid #e8eefb;border-top-color:var(--navy);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
@@ -119,7 +122,7 @@ main.wide{max-width:none;padding:12px 16px}
         <div class="actions"><button type="button" id="inbox-retry">Reload here</button><button type="button" class="primary" id="inbox-open">Open Support Window</button></div>
       </div>
     </div>
-    <p class="muted" style="margin:0">Sign in to tawk.to once inside this panel. If it keeps returning to the sign-in page, your browser is blocking sign-in for embedded pages: use <b>Open in window</b>.</p>
+    <div class="inbox-hint" id="inbox-hint"><span><b>Sign In does nothing?</b> Your browser is blocking tawk.to's sign-in cookies on this page. In Brave: click the <b>Brave lion icon</b> in the address bar → <b>Advanced controls</b> → set <b>Cookies</b> to <b>Allow all</b>, then click <b>Refresh</b> and sign in. In Chrome: click the eye icon in the address bar and allow third-party cookies.</span></div>
   </section>
 </main>
 <div id="modal" class="modal" hidden>
@@ -195,21 +198,21 @@ const inbox={frame:null,timer:null,checks:0};
 let inboxMode='frame';
 try{inboxMode=localStorage.getItem('eskwelaInboxMode')||'frame';}catch{}
 function setInboxMode(mode){inboxMode=mode;try{localStorage.setItem('eskwelaInboxMode',mode);}catch{}}
-function inboxCover(which){$('#inbox-loading').hidden=which!=='loading';$('#inbox-failed').hidden=which!=='failed';}
+function inboxCover(which){$('#inbox-hint').hidden=inboxMode==='window';$('#inbox-loading').hidden=which!=='loading';$('#inbox-failed').hidden=which!=='failed';}
 function inboxStatus(text){$('#inbox-status').textContent=text;}
 function inboxFailed(reason){
   clearTimeout(inbox.timer);
   const blocked=reason==='blocked';
   if(blocked){setInboxMode('window');inbox.frame?.remove();inbox.frame=null;}
-  $('#inbox-failed-title').textContent=reason==='window'?'Support Inbox uses the support window.':blocked?'tawk.to cannot be shown inside Licensing Admin in this browser.':'The support dashboard did not respond.';
-  $('#inbox-failed-text').textContent=reason==='window'?'This browser could not show the dashboard here before. Open the support window, or try loading it here again.':blocked?'Open it in the support window instead. Support Inbox will use the window automatically next time.':'Check the internet connection, then reload, or open the support window.';
+  $('#inbox-failed-title').textContent=reason==='window'?'Support Inbox opens tawk.to in the support window.':blocked?'tawk.to cannot be shown inside Licensing Admin in this browser.':'The support dashboard did not respond.';
+  $('#inbox-failed-text').textContent=reason==='window'?'Clicking Support Inbox opens it automatically. Use Reload here to try the embedded view again.':blocked?'Open it in the support window instead. Support Inbox will use the window automatically next time.':'Check the internet connection, then reload, or open the support window.';
   inboxCover('failed');
   inboxStatus(blocked||reason==='window'?'Using the support window':'Not connected');
 }
 function checkInbox(){
   let frames=0;
   try{frames=inbox.frame.contentWindow.length;}catch{}
-  if(frames>0){inboxCover('');inboxStatus('Connected · reply to teachers here');return;}
+  if(frames>0){inboxCover('');inboxStatus('Dashboard loaded · sign in to tawk.to to see chats');return;}
   if(++inbox.checks>=12)return inboxFailed('blocked');
   inbox.timer=setTimeout(checkInbox,1000);
 }
