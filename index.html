@@ -68,6 +68,20 @@ tr:hover td{background:#f8fafc}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 #keygate input{width:100%}
 #keygate-msg{color:var(--bad);font-weight:600;min-height:18px}
+main.wide{max-width:none;padding:12px 16px}
+#inbox[hidden]{display:none}
+#inbox{display:flex;flex-direction:column;gap:8px;height:calc(100vh - 170px);min-height:480px}
+.inbox-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.inbox-bar h2{margin:0;font-size:18px}
+.inbox-bar .actions button{padding:6px 12px;font-size:13px}
+#inbox-status{font-size:12px;color:#6b7684}
+.inbox-frame{position:relative;flex:1;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.inbox-frame iframe{width:100%;height:100%;border:0;display:block}
+.inbox-cover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#fff;text-align:center;padding:24px}
+.inbox-cover[hidden]{display:none}
+.inbox-cover p{margin:0;max-width:460px}
+.spinner{width:34px;height:34px;border:3px solid #e8eefb;border-top-color:var(--navy);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -80,7 +94,8 @@ tr:hover td{background:#f8fafc}
 </header>
 <nav id="nav">
   <button type="button" data-page="Licenses" class="active">Licenses</button>
-  <button type="button" data-page="Support Chat">Support Chat</button>
+  <button type="button" data-page="Support Inbox">Support Inbox</button>
+  <button type="button" data-page="Support Chat">Old Support Chat</button>
   <button type="button" data-page="Audit">Audit</button>
   <button type="button" data-page="AI Settings">AI Settings</button>
 </nav>
@@ -88,6 +103,24 @@ tr:hover td{background:#f8fafc}
   <div id="error" role="alert"></div>
   <div id="generated" hidden></div>
   <div id="content"></div>
+  <section id="inbox" hidden aria-label="Support Inbox">
+    <div class="inbox-bar">
+      <div><h2>Support Inbox</h2><span id="inbox-status">tawk.to live chat</span></div>
+      <div class="actions">
+        <button type="button" id="inbox-refresh">Refresh</button>
+        <button type="button" class="primary" id="inbox-window">Open in window</button>
+      </div>
+    </div>
+    <div class="inbox-frame">
+      <div class="inbox-cover" id="inbox-loading"><div class="spinner"></div><p>Loading the tawk.to support dashboard…</p></div>
+      <div class="inbox-cover" id="inbox-failed" hidden>
+        <p><strong id="inbox-failed-title">The support dashboard could not load here.</strong></p>
+        <p class="muted" id="inbox-failed-text">Open it in the support window instead. Support Inbox will use the window automatically next time.</p>
+        <div class="actions"><button type="button" id="inbox-retry">Reload here</button><button type="button" class="primary" id="inbox-open">Open Support Window</button></div>
+      </div>
+    </div>
+    <p class="muted" style="margin:0">Sign in to tawk.to once inside this panel. If it keeps returning to the sign-in page, your browser is blocking sign-in for embedded pages: use <b>Open in window</b>.</p>
+  </section>
 </main>
 <div id="modal" class="modal" hidden>
   <div class="modal-card">
@@ -153,7 +186,60 @@ function renderCounts(){
 }
 function updateNav(){
   const button=document.querySelector('[data-page="Support Chat"]');
-  if(button)button.textContent=state.unread?`Support Chat (${state.unread})`:'Support Chat';
+  if(button)button.textContent=state.unread?`Old Support Chat (${state.unread})`:'Old Support Chat';
+}
+// tawk.to agent dashboard. Cross-origin, so success is inferred: the real dashboard creates child
+// frames, while a page the browser refused to embed has none.
+const INBOX_URL='https://dashboard.tawk.to/';
+const inbox={frame:null,timer:null,checks:0};
+let inboxMode='frame';
+try{inboxMode=localStorage.getItem('eskwelaInboxMode')||'frame';}catch{}
+function setInboxMode(mode){inboxMode=mode;try{localStorage.setItem('eskwelaInboxMode',mode);}catch{}}
+function inboxCover(which){$('#inbox-loading').hidden=which!=='loading';$('#inbox-failed').hidden=which!=='failed';}
+function inboxStatus(text){$('#inbox-status').textContent=text;}
+function inboxFailed(reason){
+  clearTimeout(inbox.timer);
+  const blocked=reason==='blocked';
+  if(blocked){setInboxMode('window');inbox.frame?.remove();inbox.frame=null;}
+  $('#inbox-failed-title').textContent=reason==='window'?'Support Inbox uses the support window.':blocked?'tawk.to cannot be shown inside Licensing Admin in this browser.':'The support dashboard did not respond.';
+  $('#inbox-failed-text').textContent=reason==='window'?'This browser could not show the dashboard here before. Open the support window, or try loading it here again.':blocked?'Open it in the support window instead. Support Inbox will use the window automatically next time.':'Check the internet connection, then reload, or open the support window.';
+  inboxCover('failed');
+  inboxStatus(blocked||reason==='window'?'Using the support window':'Not connected');
+}
+function checkInbox(){
+  let frames=0;
+  try{frames=inbox.frame.contentWindow.length;}catch{}
+  if(frames>0){inboxCover('');inboxStatus('Connected · reply to teachers here');return;}
+  if(++inbox.checks>=12)return inboxFailed('blocked');
+  inbox.timer=setTimeout(checkInbox,1000);
+}
+function loadInbox(){
+  clearTimeout(inbox.timer);
+  inbox.frame?.remove();
+  const frame=document.createElement('iframe');
+  frame.title='tawk.to support dashboard';
+  frame.allow='clipboard-read; clipboard-write; autoplay; microphone; camera; notifications';
+  inbox.frame=frame;inbox.checks=0;
+  inboxCover('loading');inboxStatus('Connecting to tawk.to…');
+  inbox.timer=setTimeout(()=>inboxFailed('timeout'),30000);
+  frame.addEventListener('load',()=>{clearTimeout(inbox.timer);inbox.timer=setTimeout(checkInbox,1000);});
+  frame.src=INBOX_URL;
+  $('.inbox-frame').appendChild(frame);
+}
+function openInboxWindow(){
+  const popup=window.open(INBOX_URL,'eskwela-support-inbox','popup=yes,width=1280,height=860');
+  if(!popup){showError('Allow pop-ups for this page to open the support window.');return;}
+  popup.focus();
+  inboxStatus('Support window open');
+}
+$('#inbox-refresh').addEventListener('click',()=>{setInboxMode('frame');loadInbox();});
+$('#inbox-retry').addEventListener('click',()=>{setInboxMode('frame');loadInbox();});
+$('#inbox-window').addEventListener('click',openInboxWindow);
+$('#inbox-open').addEventListener('click',openInboxWindow);
+function renderInbox(){
+  if(inbox.frame)return;
+  if(inboxMode==='window')inboxFailed('window');
+  else loadInbox();
 }
 let confirmResolver=null;
 function askConfirm(text){
@@ -464,7 +550,12 @@ async function renderAISettings(){
 
 function renderPage(){
   document.querySelectorAll('#nav button').forEach(button=>button.classList.toggle('active',button.dataset.page===state.page));
-  if(state.page==='Licenses')renderLicenses();
+  const inboxPage=state.page==='Support Inbox';
+  $('main').classList.toggle('wide',inboxPage);
+  $('#content').hidden=inboxPage;
+  $('#inbox').hidden=!inboxPage;
+  if(inboxPage)renderInbox();
+  else if(state.page==='Licenses')renderLicenses();
   else if(state.page==='Support Chat')renderChat();
   else if(state.page==='AI Settings')renderAISettings();
   else renderAudit();
@@ -473,6 +564,7 @@ $('#nav').addEventListener('click',event=>{
   const button=event.target.closest('[data-page]');
   if(!button)return;
   state.page=button.dataset.page;
+  if(state.page==='Support Inbox'&&inboxMode==='window'&&!inbox.frame)openInboxWindow();
   renderPage();
 });
 async function tick(){
