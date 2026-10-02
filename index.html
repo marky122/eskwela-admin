@@ -122,7 +122,7 @@ main.wide{max-width:none;padding:12px 16px}
         <div class="actions"><button type="button" id="inbox-retry">Reload here</button><button type="button" class="primary" id="inbox-open">Open Support Window</button></div>
       </div>
     </div>
-    <div class="inbox-hint" id="inbox-hint"><span><b>Sign In does nothing?</b> Your browser is blocking tawk.to's sign-in cookies on this page. In Brave: click the <b>Brave lion icon</b> in the address bar → <b>Advanced controls</b> → set <b>Cookies</b> to <b>Allow all</b>, then click <b>Refresh</b> and sign in. In Chrome: click the eye icon in the address bar and allow third-party cookies.</span></div>
+    <div class="inbox-hint" id="inbox-hint"><span><b>Sign In does nothing in a browser.</b> tawk.to only allows sign-in on its own page, so browsers block it inside Licensing Admin. Use the <b>Eskwela Admin desktop app</b> to sign in and answer chats right here.</span></div>
   </section>
 </main>
 <div id="modal" class="modal" hidden>
@@ -198,7 +198,22 @@ const inbox={frame:null,timer:null,checks:0};
 let inboxMode='frame';
 try{inboxMode=localStorage.getItem('eskwelaInboxMode')||'frame';}catch{}
 function setInboxMode(mode){inboxMode=mode;try{localStorage.setItem('eskwelaInboxMode',mode);}catch{}}
-function inboxCover(which){$('#inbox-hint').hidden=inboxMode==='window';$('#inbox-loading').hidden=which!=='loading';$('#inbox-failed').hidden=which!=='failed';}
+// The Eskwela Admin desktop app shows tawk.to as its own page over the panel, where sign-in works.
+const desktopInbox=window.eskwelaAdmin?.inbox||null;
+function inboxBounds(){const r=$('.inbox-frame').getBoundingClientRect();return{x:r.left,y:r.top,width:r.width,height:r.height};}
+function syncDesktopInbox(){if(desktopInbox&&state.page==='Support Inbox'&&inbox.desktopShown&&$('#inbox-loading').hidden&&$('#inbox-failed').hidden)desktopInbox.show(inboxBounds());}
+if(desktopInbox){
+  $('#inbox-window').hidden=true;
+  new ResizeObserver(syncDesktopInbox).observe($('.inbox-frame'));
+  window.addEventListener('resize',syncDesktopInbox);
+  desktopInbox.onState(({status,unread})=>{
+    const button=document.querySelector('[data-page="Support Inbox"]');
+    if(button)button.textContent=unread?`Support Inbox (${unread})`:'Support Inbox';
+    if(status==='loaded'){clearTimeout(inbox.timer);inboxCover('');inboxStatus(unread?`${unread} unread`:'Connected to tawk.to');syncDesktopInbox();}
+    else if(status==='failed'){desktopInbox.hide();inboxFailed('timeout');}
+  });
+}
+function inboxCover(which){$('#inbox-hint').hidden=inboxMode==='window'||!!desktopInbox;$('#inbox-loading').hidden=which!=='loading';$('#inbox-failed').hidden=which!=='failed';}
 function inboxStatus(text){$('#inbox-status').textContent=text;}
 function inboxFailed(reason){
   clearTimeout(inbox.timer);
@@ -218,6 +233,13 @@ function checkInbox(){
 }
 function loadInbox(){
   clearTimeout(inbox.timer);
+  if(desktopInbox){
+    inbox.desktopShown=true;
+    inboxCover('loading');inboxStatus('Connecting to tawk.to…');
+    inbox.timer=setTimeout(()=>{desktopInbox.hide();inboxFailed('timeout');},30000);
+    desktopInbox.load();
+    return;
+  }
   inbox.frame?.remove();
   const frame=document.createElement('iframe');
   frame.title='tawk.to support dashboard';
@@ -235,11 +257,12 @@ function openInboxWindow(){
   popup.focus();
   inboxStatus('Support window open');
 }
-$('#inbox-refresh').addEventListener('click',()=>{setInboxMode('frame');loadInbox();});
+$('#inbox-refresh').addEventListener('click',()=>{setInboxMode('frame');if(desktopInbox)desktopInbox.hide();loadInbox();});
 $('#inbox-retry').addEventListener('click',()=>{setInboxMode('frame');loadInbox();});
 $('#inbox-window').addEventListener('click',openInboxWindow);
 $('#inbox-open').addEventListener('click',openInboxWindow);
 function renderInbox(){
+  if(desktopInbox){if(inbox.desktopShown)syncDesktopInbox();else loadInbox();return;}
   if(inbox.frame)return;
   if(inboxMode==='window')inboxFailed('window');
   else loadInbox();
@@ -557,6 +580,7 @@ function renderPage(){
   $('main').classList.toggle('wide',inboxPage);
   $('#content').hidden=inboxPage;
   $('#inbox').hidden=!inboxPage;
+  if(!inboxPage)desktopInbox?.hide();
   if(inboxPage)renderInbox();
   else if(state.page==='Licenses')renderLicenses();
   else if(state.page==='Support Chat')renderChat();
@@ -567,7 +591,7 @@ $('#nav').addEventListener('click',event=>{
   const button=event.target.closest('[data-page]');
   if(!button)return;
   state.page=button.dataset.page;
-  if(state.page==='Support Inbox'&&inboxMode==='window'&&!inbox.frame)openInboxWindow();
+  if(state.page==='Support Inbox'&&inboxMode==='window'&&!inbox.frame&&!desktopInbox)openInboxWindow();
   renderPage();
 });
 async function tick(){
